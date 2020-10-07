@@ -4,8 +4,9 @@
 celery
 djangorestframework
 django-filter
-django-oauth2-provider
+django-oauth2-provider; python_version == "3.5"
 django-oauth-toolkit
 django-waffle
+edx-django-oauth2-provider; python_version == "2.7"
 edx-proctoring
 edx-opaque-keys[django]
