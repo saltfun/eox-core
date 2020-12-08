@@ -5,7 +5,7 @@ from django.test import TestCase
 from os import environ
 
 
-@pytest.mark.skipif(environ.get('CI'), reason='Dont run on CI')
+@pytest.mark.skipif(environ.get('CI') != '', reason='Do not run on CI')
 class TestEnrollmentIntegration(TestCase):
     ENDPOINT = 'eox-core/api/v1/enrollment/'
     TOKEN = ''
