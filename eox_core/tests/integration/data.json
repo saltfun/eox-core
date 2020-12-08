@@ -1,0 +1,61 @@
+{
+    "client_id": "apiclient",
+    "client_secret": "apisecret",
+    "grant_type": "client_credentials",
+    "HOST": "http://localhost:18000/",
+    "test_1_data" : {
+        "username": "honor",
+        "email": "honor@example.com",
+        "course_id": "course-v1:edX+DemoX+Demo_Course"
+    },
+    "test_2_data" : {
+        "email": "honor@example.com",
+        "username": "honor",
+        "course_id": "course-v1:edX+DemoX+Demo_Course"
+    },
+    "test_3_data" : {
+        "email": "honor@example.com",
+        "username": "honor",
+        "course_id": "course-v1:edX+DemoX+Demo_Course"
+    },
+    "test_4_data" : {
+        "email": "honor@example.com",
+        "username": "honor",
+        "course_id": "course-v1:edX+DemoX+Demo_Course",
+	"mode": "audit"
+    },
+    "test_5_data" : {
+        "email": "honor@example.com",
+        "username": "honor",
+        "course_id": "course-v1:edX+DemoX+Demo_Course",
+	"mode": "audit"
+    },
+    "test_6_data" : {
+        "email": "honor@example.com",
+        "username": "honor",
+        "course_id": "course-v1:edX+DemoX+Demo_Course",
+	"mode": "audit"
+    },
+    "test_7_data" : {
+        "email": "honor@example.com",
+        "username": "honor",
+        "course_id": "course-v1:edX+DemoX+Demo_Course",
+        "mode": "audit",
+        "is_active": false
+    },
+    "test_8_data" : {
+        "email": "honor@example.com",
+        "username": "honor",
+        "course_id": "course-v1:edX+DemoX+Demo_Course",
+        "mode": "audit",
+        "is_active": true
+    },
+    "test_9_data" : {
+        "email": "honor@example.com",
+        "username": "honor",
+        "course_id": "course-v1:edX+DemoX+Demo_Course",
+        "mode": "honor",
+        "is_active": true
+    }
+}
+
