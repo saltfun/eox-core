@@ -17,7 +17,7 @@ class TestEnrollmentIntegration(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        with open('eox_core/tests/integration/data.json') as file_obj:
+        with open('eox_core/tests/integration/test_data') as file_obj:
             cls.data = json.load(file_obj)
         cls.data['request_url'] = '{}/{}'.format(cls.data['base_url'],
                                                  'eox-core/api/v1/enrollment/')
