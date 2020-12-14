@@ -1,9 +1,9 @@
 """
 Integration tests
 """
+import json
 from os import environ
 
-import json
 import pytest
 import requests
 from django.test import TestCase
