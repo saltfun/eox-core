@@ -1,5 +1,13 @@
+Integration tests
+=================
+
+.. contents:: 
+
+Enrollments API
++++++++++++++++
+
 Running
-=======
+-------
 
 You can run the tests using the make target
 
@@ -8,49 +16,246 @@ You can run the tests using the make target
     $ make python-test
 
 This test make several assumptions about the current state of the database
-in case your setup differs you will have to modify ``data.json`` accordingly.
+in case your setup differs you will have to modify ``test_data`` accordingly.
 
 Data requirements
 -----------------
-The data.json file includes data necessary to run each test. It's content
+The test_data file includes the data necessary to run each test. It's content
 must reflect the current database configuration of the platform you
-are running the tests. The provided file is meant to run on a devstack
-enviroment with the following requirements:
+are running the tests. The provided test are meant to be run on a devstack
+environment with the following requirements:
 
-- There should be an DOT application with client_id ``apiclient`` and
-  client_secret ``apisecret``
-- There should be a user with username ``honor`` and email ``honor@example.com``
-- There should be a course with id ``course-v1:edX+DemoX+Demo_Course``
-- There user ``honor`` should be enrolled on the course
-  ``"course-v1:edX+DemoX+Demo_Course``, the flag is_active should be ``true``,
-  and the course mode should be ``audit``
+1. There should be a DOT application with client_id ``apiclient`` and
+   client_secret ``apisecret``
+2. There should be two sites available with Domain Name ``site1.localhost`` and
+   ``site2.localhost``
+3. Each site should have one user with username ``user_site1`` and email
+   ``user_site1@example.com`` for ``site1`` and ``user_site2`` and
+   ``user_site2@example.com`` for ``site2``.
+4. ``site1`` should have a ``site1_course`` with id
+   ``course-v1:edX+DemoX+Demo_Course`` this course should not be available on
+   ``site2``. You must enable the ``audit`` and ``honor`` modes for ``site1_course``
 
-Each test is performed sequentially ensuring that all CRUD operations are
-performed successfully. In particular, CREATE and DELETE are dependant on each
-other (the default enrollment is deleted and then created again), if one of those
-were to fail the rest of the tests will probably fail too. In a similar vain,
-the UPDATE operation is performed twice where the second one assumes the first one
-was successful.
+``test_data`` layout
+~~~~~~~~~~~~~~~~~~~~
 
-This behaviour can be changed by altering the data.json file, you must ensure a way
-to restore de initial layout of the data in your DB, otherwise subsequent runs will
-fail.
+.. code-block:: json
 
+    {
+        "base_url": "http://localhost:18000",
+        "client_id": "apiclient",
+        "client_secret": "apisecret",
+        "site1_data": {
+            "fake_user": "fakeuser",
+            "user_id": "user_site1",
+            "user_email": "user_site1@example.com",
+            "host": "site1.localhost",
+            "course": {
+                "id": "course-v1:edX+DemoX+Demo_Course",
+                "mode": "audit"
+            }
+        },
+        "site2_data": {
+            "user_id": "user_site2",
+            "user_email": "user_site2@example.com",
+            "host": "site2.localhost"
+        }
+    }
 
 Current Tests
 -------------
 
-There are 8 tests making a GET, POST, PUT or DELETE with either the username
-``honor`` or the email ``honor@example.com`` and course_id
-``course-v1:edX+DemoX+Demo_Course``. This information is found in the data.json file.
-Each test have their on ``test_#_data`` where # refers to the number of the test
-found in each test name. The current list of tests is as follows:
+Each test from this suite performs an http request to guarantee
+that all CRUD operations are handled correctly. Bellow are
+several tables, one for each operation, with all the parameters
+combinations used for all the tests with data from ``test_data``
 
-- **Test 1:** GET    request with email and course_id.  Data: ``test1_data``
-- **Test 2:** GET    request with username and course_id.  Data: ``test2_data``
-- **Test 3:** DELETE request with username and course_id.  Data: ``test3_data``
-- **Test 4:** POST   request with username, course_id and mode.  Data: ``test4_data``
-- **Test 5:** DELETE request with email and course_id.  Data: ``test5_data``
-- **Test 6:** POST   request with email, course_id and mode.  Data: ``test6_data``
-- **Test 7:** PUT    request with email, course_id, mode and is_active.  Data: ``test7_data``
-- **Test 8:** PUT    request with username, course_id, mode and is_active.  Data: ``test8_data``
+- **CREATE**
+
+.. list-table::
+  :header-rows: 1
+
+  * - Method
+    - Username or email
+    - Course
+    - Mode
+    - Site
+    - Force
+    - Expected Result
+
+  * - POST 
+    - ``user_site1``
+    - ``site1_course``
+    - ``audit``
+    - ``site1``
+    - no
+    - Pass
+
+  * - POST 
+    - ``user_site1``
+    - ``site1_course``
+    - ``audit``
+    - ``site1``
+    - yes
+    - Pass
+
+  * - POST 
+    - ``fakeuser``
+    - ``site1_course``
+    - ``audit``
+    - ``site1``
+    - no
+    - Fail
+
+  * - POST 
+    - ``user_site2``
+    - ``site1_course``
+    - ``audit``
+    - ``site1``
+    - no
+    - Fail
+
+  * - POST 
+    - ``user_site1``
+    - fake_course
+    - ``audit``
+    - ``site1``
+    - yes
+    - Pass
+
+  * - POST 
+    - ``user_site2``
+    - ``site1_course``
+    - ``audit``
+    - ``site2``
+    - yes
+    - Fail
+
+  * - POST 
+    - ``user_site1``
+    - ``site1_course``
+    - ``masters``
+    - ``site1``
+    - no
+    - Fail
+
+- **READ**
+
+.. list-table::
+  :header-rows: 1
+
+  * - Method
+    - Username or email
+    - Course
+    - Site
+    - Expected Result
+
+  * - GET 
+    - ``user_site1``
+    - ``site1_course``
+    - ``site1``
+    - Pass
+
+  * - GET 
+    - ``user_site2``
+    - ``site1_course``
+    - ``site2``
+    - Fail
+
+  * - GET 
+    - ``user_site1``
+    - ``site1_course``
+    - ``site2``
+    - Fail
+
+- **UPDATE**
+
+.. list-table::
+  :header-rows: 1
+
+  * - Method
+    - Username or email
+    - Course
+    - Mode
+    - ``is_active``
+    - Site
+    - Force
+    - Expected Result
+
+  * - PUT 
+    - ``user_site1``
+    - ``site1_course``
+    - ``audit -> audit``
+    - ``true->false``
+    - ``site1``
+    - No
+    - Pass
+
+  * - PUT 
+    - ``user_site1``
+    - ``site1_course``
+    - ``audit -> honor``
+    - ``true->true``
+    - ``site1``
+    - No
+    - Pass
+
+  * - PUT 
+    - ``user_site1``
+    - ``site1_course``
+    - ``audit -> masters``
+    - ``true->true``
+    - ``site1``
+    - No
+    - Pass
+
+  * - PUT 
+    - ``user_site2``
+    - ``site1_course``
+    - ``audit -> audit``
+    - ``true->false``
+    - ``site1``
+    - No
+    - Pass
+
+  * - PUT 
+    - ``user_site2``
+    - ``site1_course``
+    - ``audit -> honor``
+    - ``true->true``
+    - ``site1``
+    - No
+    - Pass
+
+- **DELETE**
+
+.. list-table::
+  :header-rows: 1
+
+  * - Method
+    - Username or email
+    - Course
+    - Site
+    - Expected Result
+
+  * - GET 
+    - ``user_site1``
+    - ``site1_course``
+    - ``site1``
+    - Pass
+
+  * - GET 
+    - ``user_site2``
+    - ``site1_course``
+    - ``site2``
+    - Fail
+
+  * - GET 
+    - ``user_site1``
+    - ``site1_course``
+    - ``site2``
+    - Fail
+
+Testing on stage
+----------------
+WIP
