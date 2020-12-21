@@ -11,47 +11,58 @@ from django.test import TestCase
 
 @pytest.mark.skipif(bool(environ.get('CI')), reason='Do not run on CI')
 class TestEnrollmentIntegration(TestCase):
+    # pylint: disable=too-many-public-methods
     """Test suite"""
     data = {}
-    token = {}
 
     @classmethod
     def setUpClass(cls):
         with open('eox_core/tests/integration/test_data') as file_obj:
             cls.data = json.load(file_obj)
-        cls.data['request_url'] = '{}/{}'.format(cls.data['base_url'],
-                                                 'eox-core/api/v1/enrollment/')
-        data = {
-            'client_id': cls.data['client_id'],
-            'client_secret': cls.data['client_secret'],
+        cls.data['endpoint'] = 'eox-core/api/v1/enrollment/'
+        site1_data = {
+            'client_id': cls.data['site1_data']['client_id'],
+            'client_secret': cls.data['site1_data']['client_secret'],
             'grant_type': 'client_credentials'
         }
-        request_url = '{}/{}'.format(cls.data['base_url'],
+        site2_data = {
+            'client_id': cls.data['site2_data']['client_id'],
+            'client_secret': cls.data['site2_data']['client_secret'],
+            'grant_type': 'client_credentials'
+        }
+        request_url = '{}/{}'.format(cls.data['site1_data']['base_url'],
                                      'oauth2/access_token/')
-        response = requests.post(request_url, data=data)
-        response.raise_for_status()
-        cls.data['token'] = response.json()['access_token']
+        response_site1 = requests.post(request_url, data=site1_data)
+        response_site1.raise_for_status()
+        cls.data['site1_data']['token'] = response_site1.json()['access_token']
+        request_url = '{}/{}'.format(cls.data['site2_data']['base_url'],
+                                     'oauth2/access_token/')
+        response_site2 = requests.post(request_url, data=site2_data)
+        response_site2.raise_for_status()
+        cls.data['site2_data']['token'] = response_site2.json()['access_token']
 
     def test_read_valid_email_course(self):
         # pylint: disable=invalid-name
         """
         Get a valid enrollment
         """
-        create_enrollment(self.data)  # SetUp Initial Enrollment
+        create_enrollment(self.data)
         site1_data = self.data['site1_data']
         data = {
             'email': site1_data['user_email'],
-            'course_id': site1_data['course']["id"],
+            'course_id': site1_data['course']['id'],
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
             'Host': site1_data['host'],
         }
         expected_response = {
             'username': site1_data['user_id'],
             'course_id': data['course_id'],
         }
-        response = requests.get(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.get(request_url,
                                 data=data,
                                 headers=headers)
         self.assertEqual(response.status_code, 200)
@@ -63,17 +74,19 @@ class TestEnrollmentIntegration(TestCase):
         """
         Get a invalid enrollment (doesn't exist)
         """
+        delete_enrollment(self.data)
         site1_data = self.data['site1_data']
-        site2_data = self.data['site2_data']
         data = {
-            'username': site2_data['user_id'],
+            'username': site1_data['user_id'],
             'course_id': site1_data['course']['id'],
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
-            'Host': site2_data['host'],
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
+            'Host': site1_data['host'],
         }
-        response = requests.get(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.get(request_url,
                                 data=data,
                                 headers=headers)
         self.assertEqual(response.status_code, 404)
@@ -83,6 +96,7 @@ class TestEnrollmentIntegration(TestCase):
         """
         Get a invalid enrollment (enrollment from other site)
         """
+        create_enrollment(self.data)
         site1_data = self.data['site1_data']
         site2_data = self.data['site2_data']
         data = {
@@ -90,10 +104,12 @@ class TestEnrollmentIntegration(TestCase):
             'course_id': site1_data['course']['id'],
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site2_data['token']),
             'Host': site2_data['host'],
         }
-        response = requests.get(self.data['request_url'],
+        request_url = '{}/{}'.format(site2_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.get(request_url,
                                 data=data,
                                 headers=headers)
         self.assertEqual(response.status_code, 404)
@@ -104,7 +120,7 @@ class TestEnrollmentIntegration(TestCase):
         Create enrollment with a valid user, valid course,
         valid mode
         """
-        delete_enrollment(self.data)  # setUp (delete enrollment if exists)
+        delete_enrollment(self.data)
 
         site1_data = self.data['site1_data']
         data = {
@@ -113,10 +129,12 @@ class TestEnrollmentIntegration(TestCase):
             'mode': site1_data['course']['mode'],
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
             'Host': site1_data['host'],
         }
-        response = requests.post(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.post(request_url,
                                  data=data,
                                  headers=headers)
         self.assertEqual(response.status_code, 200)
@@ -127,20 +145,22 @@ class TestEnrollmentIntegration(TestCase):
         Create enrollment with a valid user, valid course,
         valid mode using force
         """
-        delete_enrollment(self.data)  # setUp (delete enrollment if exists)
+        delete_enrollment(self.data)
 
         site1_data = self.data['site1_data']
         data = {
             'email': site1_data['user_email'],
             'course_id': site1_data['course']['id'],
             'mode': site1_data['course']['mode'],
-            'force': 1,
+            'force': True,
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
             'Host': site1_data['host'],
         }
-        response = requests.post(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.post(request_url,
                                  data=data,
                                  headers=headers)
         self.assertEqual(response.status_code, 200)
@@ -158,10 +178,12 @@ class TestEnrollmentIntegration(TestCase):
             'mode': site1_data['course']['mode'],
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
             'Host': site1_data['host'],
         }
-        response = requests.post(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.post(request_url,
                                  data=data,
                                  headers=headers)
         self.assertEqual(response.status_code, 400)
@@ -180,10 +202,12 @@ class TestEnrollmentIntegration(TestCase):
             'mode': site1_data['course']['mode'],
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
             'Host': site1_data['host'],
         }
-        response = requests.post(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.post(request_url,
                                  data=data,
                                  headers=headers)
         self.assertEqual(response.status_code, 202)
@@ -199,13 +223,15 @@ class TestEnrollmentIntegration(TestCase):
             'email': site1_data['user_email'],
             'course_id': 'fake_course_id',
             'mode': 'audit',
-            'force': 1,
+            'force': True,
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
             'Host': site1_data['host'],
         }
-        response = requests.post(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.post(request_url,
                                  data=data,
                                  headers=headers)
         self.assertEqual(response.status_code, 400)
@@ -222,56 +248,64 @@ class TestEnrollmentIntegration(TestCase):
             'email': site2_data['user_email'],
             'course_id': site1_data['course']['id'],
             'mode': site1_data['course']['mode'],
-            'force': 1,
+            'force': True,
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site2_data['token']),
             'Host': site2_data['host'],
         }
-        response = requests.post(self.data['request_url'],
+        request_url = '{}/{}'.format(site2_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.post(request_url,
                                  data=data,
                                  headers=headers)
         self.assertEqual(response.status_code, 400)
 
     # NOTE: Mode changes are not working correctly on devstack
-    # def test_create_valid_user_course_invalid_mode(self):
-    #     # pylint: disable=invalid-name
-    #     """
-    #     Create enrollment with a valid user, valid course,
-    #     and a not available mode
-    #     """
-    #     site1_data = self.data['site1_data']
-    #     data = {
-    #         'email': site1_data['user_email'],
-    #         'course_id': site1_data['course']['id'],
-    #         'mode': 'masters',
-    #         'force': 1,
-    #     }
-    #     headers = {
-    #         'Authorization': 'Bearer {}'.format(self.data['token']),
-    #         'Host': site1_data['host'],
-    #     }
-    #     response = requests.post(self.data['request_url'],
-    #                              data=data,
-    #                              headers=headers)
-    #     self.assertEqual(response.status_code, 400)
+    def test_force_create_valid_user_course_invalid_mode(self):
+        # pylint: disable=invalid-name
+        """
+        Create enrollment with a valid user, valid course,
+        and a not available mode
+        """
+        delete_enrollment(self.data)
+
+        site1_data = self.data['site1_data']
+        data = {
+            'email': site1_data['user_email'],
+            'course_id': site1_data['course']['id'],
+            'mode': 'masters',
+            'force': 1,
+        }
+        headers = {
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
+            'Host': site1_data['host'],
+        }
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.post(request_url,
+                                 data=data,
+                                 headers=headers)
+        self.assertEqual(response.status_code, 400)
 
     def test_delete_valid_enrollment(self):
         # pylint: disable=invalid-name
         """
         Delete a valid enrollment
         """
-        create_enrollment(self.data)  # SetUp Initial Enrollment
+        create_enrollment(self.data)
         site1_data = self.data['site1_data']
         data = {
             'email': site1_data['user_email'],
-            'course_id': site1_data['course']["id"],
+            'course_id': site1_data['course']['id'],
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
             'Host': site1_data['host'],
         }
-        response = requests.delete(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.delete(request_url,
                                    data=data,
                                    headers=headers)
         self.assertEqual(response.status_code, 204)
@@ -281,17 +315,19 @@ class TestEnrollmentIntegration(TestCase):
         """
         Delete a invalid enrollment(doesn't exist)
         """
+        delete_enrollment(self.data)
         site1_data = self.data['site1_data']
-        site2_data = self.data['site2_data']
         data = {
-            'email': site2_data['user_email'],
-            'course_id': site1_data['course']["id"],
+            'email': site1_data['user_email'],
+            'course_id': site1_data['course']['id'],
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
-            'Host': site2_data['host'],
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
+            'Host': site1_data['host'],
         }
-        response = requests.delete(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.delete(request_url,
                                    data=data,
                                    headers=headers)
         self.assertEqual(response.status_code, 404)
@@ -299,19 +335,22 @@ class TestEnrollmentIntegration(TestCase):
     def test_delete_invalid_enrollment_for_site(self):
         # pylint: disable=invalid-name
         """
-        Delete a invalid enrollment(doesn't exist)
+        Delete a invalid enrollment (enrollment from other site)
         """
+        create_enrollment(self.data)
         site1_data = self.data['site1_data']
         site2_data = self.data['site2_data']
         data = {
             'email': site1_data['user_email'],
-            'course_id': site1_data['course']["id"],
+            'course_id': site1_data['course']['id'],
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site2_data['token']),
             'Host': site2_data['host'],
         }
-        response = requests.delete(self.data['request_url'],
+        request_url = '{}/{}'.format(site2_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.delete(request_url,
                                    data=data,
                                    headers=headers)
         self.assertEqual(response.status_code, 404)
@@ -321,16 +360,16 @@ class TestEnrollmentIntegration(TestCase):
         """
         Update an existing enrollment; change is_active flag
         """
-        create_enrollment(self.data)  # SetUp Initial Enrollment
+        create_enrollment(self.data)
         site1_data = self.data['site1_data']
         data = {
             'email': site1_data['user_email'],
-            'course_id': site1_data['course']["id"],
+            'course_id': site1_data['course']['id'],
             'is_active': False,
             'mode': site1_data['course']["mode"],
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
             'Host': site1_data['host'],
         }
         expected_response = {
@@ -338,7 +377,9 @@ class TestEnrollmentIntegration(TestCase):
             'is_active': False,
             'course_id': data['course_id'],
         }
-        response = requests.put(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.put(request_url,
                                 data=data,
                                 headers=headers)
         self.assertEqual(response.status_code, 200)
@@ -346,54 +387,58 @@ class TestEnrollmentIntegration(TestCase):
         self.assertDictContainsSubset(expected_response, response_content)
 
     # NOTE: Mode changes are not working correctly on devstack
-    # def test_update_valid_enrollment_change_valid_mode(self):
-    #     # pylint: disable=invalid-name
-    #     """
-    #     Update an existing enrollment; change mode
-    #     """
-    #     # create_enrollment(self.data)
-    #     site1_data = self.data['site1_data']
-    #     data = {
-    #         'email': site1_data['user_email'],
-    #         'course_id': site1_data['course']["id"],
-    #         'is_active': True,
-    #         'mode': 'masters',
-    #     }
-    #     headers = {
-    #         'Authorization': 'Bearer {}'.format(self.data['token']),
-    #         'Host': site1_data['host'],
-    #     }
-    #     expected_response = {
-    #         'user': site1_data['user_id'],
-    #         'is_active': True,
-    #         'course_id': data['course_id'],
-    #         'mode': 'masters',
-    #     }
-    #     response = requests.put(self.data['request_url'],
-    #                             data=data,
-    #                             headers=headers)
-    #     self.assertEqual(response.status_code, 200)
-    #     response_content = response.json()
-    #     self.assertDictContainsSubset(expected_response, response_content)
+    def test_update_valid_enrollment_change_valid_mode(self):
+        # pylint: disable=invalid-name
+        """
+        Update an existing enrollment; change mode
+        """
+        create_enrollment(self.data)
+        site1_data = self.data['site1_data']
+        data = {
+            'email': site1_data['user_email'],
+            'course_id': site1_data['course']['id'],
+            'is_active': True,
+            'mode': 'honor',
+        }
+        headers = {
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
+            'Host': site1_data['host'],
+        }
+        expected_response = {
+            'user': site1_data['user_id'],
+            'is_active': True,
+            'course_id': data['course_id'],
+            'mode': 'honor',
+        }
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.put(request_url,
+                                data=data,
+                                headers=headers)
+        self.assertEqual(response.status_code, 200)
+        response_content = response.json()
+        self.assertDictContainsSubset(expected_response, response_content)
 
     def test_update_valid_enrollment_change_invalid_mode(self):
         # pylint: disable=invalid-name
         """
         Update an existing enrollment; change to invalid mode
         """
-        create_enrollment(self.data)  # SetUp Initial Enrollment
+        create_enrollment(self.data)
         site1_data = self.data['site1_data']
         data = {
             'email': site1_data['user_email'],
-            'course_id': site1_data['course']["id"],
+            'course_id': site1_data['course']['id'],
             'is_active': True,
             'mode': 'masters',
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
             'Host': site1_data['host'],
         }
-        response = requests.put(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.put(request_url,
                                 data=data,
                                 headers=headers)
         self.assertEqual(response.status_code, 400)
@@ -403,48 +448,119 @@ class TestEnrollmentIntegration(TestCase):
         """
         Update an non-existent enrollment; change mode
         """
+        delete_enrollment(self.data)
         site1_data = self.data['site1_data']
-        site2_data = self.data['site2_data']
         data = {
-            'email': site2_data['user_email'],
-            'course_id': site1_data['course']["id"],
+            'email': site1_data['user_email'],
+            'course_id': site1_data['course']['id'],
             'is_active': True,
-            'mode': 'masters',
+            'mode': 'honor',
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
-            'Host': site2_data['host'],
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
+            'Host': site1_data['host'],
         }
-        response = requests.put(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.put(request_url,
                                 data=data,
                                 headers=headers)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 202)
 
     def test_update_invalid_enrollment_change_is_active(self):
+        # pylint: disable=invalid-name
         """
         Update an non-existent enrollment; change is_active flag
         """
-        # create_enrollment(self.data)
+        delete_enrollment(self.data)
         site1_data = self.data['site1_data']
-        site2_data = self.data['site2_data']
         data = {
-            'email': site2_data['user_email'],
-            'course_id': site1_data['course']["id"],
+            'email': site1_data['user_email'],
+            'course_id': site1_data['course']['id'],
             'is_active': False,
-            'mode': 'masters',
+            'mode': 'audit',
         }
         headers = {
-            'Authorization': 'Bearer {}'.format(self.data['token']),
-            'Host': site2_data['host'],
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
+            'Host': site1_data['host'],
         }
-        response = requests.put(self.data['request_url'],
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.put(request_url,
                                 data=data,
                                 headers=headers)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 202)
+
+    def test_update_valid_enrollment_change_is_active_force_post(self):
+        # pylint: disable=invalid-name
+        """
+        Update an existing enrollment using POST with force=True;
+        change is_active flag
+        """
+        create_enrollment(self.data)
+        site1_data = self.data['site1_data']
+        data = {
+            'email': site1_data['user_email'],
+            'course_id': site1_data['course']['id'],
+            'is_active': False,
+            'mode': site1_data['course']["mode"],
+            'force': True,
+        }
+        headers = {
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
+            'Host': site1_data['host'],
+        }
+        expected_response = {
+            'username': site1_data['user_id'],
+            'is_active': False,
+            'course_id': data['course_id'],
+        }
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.post(request_url,
+                                 data=data,
+                                 headers=headers)
+        self.assertEqual(response.status_code, 200)
+        response_content = response.json()
+        self.assertDictContainsSubset(expected_response, response_content)
+
+    # NOTE: Mode changes are not working correctly on devstack
+    def test_update_valid_enrollment_change_valid_mode_force_post(self):
+        # pylint: disable=invalid-name
+        """
+        Update an existing enrollment; change mode
+        """
+        create_enrollment(self.data)
+        site1_data = self.data['site1_data']
+        data = {
+            'email': site1_data['user_email'],
+            'course_id': site1_data['course']['id'],
+            'is_active': True,
+            'mode': 'honor',
+            'force': True
+        }
+        headers = {
+            'Authorization': 'Bearer {}'.format(site1_data['token']),
+            'Host': site1_data['host'],
+        }
+        expected_response = {
+            'user': site1_data['user_id'],
+            'is_active': True,
+            'course_id': data['course_id'],
+            'mode': 'honor',
+        }
+        request_url = '{}/{}'.format(site1_data['base_url'],
+                                     self.data['endpoint'])
+        response = requests.put(request_url,
+                                data=data,
+                                headers=headers)
+        self.assertEqual(response.status_code, 200)
+        response_content = response.json()
+        self.assertDictContainsSubset(expected_response, response_content)
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        delete_enrollment(cls.data)
 
 
 def create_enrollment(data):
@@ -457,10 +573,12 @@ def create_enrollment(data):
         'mode': data['site1_data']['course']['mode']
     }
     headers = {
-        'Authorization': 'Bearer {}'.format(data['token']),
+        'Authorization': 'Bearer {}'.format(data['site1_data']['token']),
         'Host': data['site1_data']['host'],
     }
-    response = requests.post(data['request_url'],
+    request_url = '{}/{}'.format(data['site1_data']['base_url'],
+                                 data['endpoint'])
+    response = requests.post(request_url,
                              data=req_data,
                              headers=headers)
     response.raise_for_status()
@@ -475,10 +593,12 @@ def delete_enrollment(data):
         'course_id': data['site1_data']['course']['id']
     }
     headers = {
-        'Authorization': 'Bearer {}'.format(data['token']),
+        'Authorization': 'Bearer {}'.format(data['site1_data']['token']),
         'Host': data['site1_data']['host'],
     }
-    response = requests.delete(data['request_url'],
+    request_url = '{}/{}'.format(data['site1_data']['base_url'],
+                                 data['endpoint'])
+    response = requests.delete(request_url,
                                data=req_data,
                                headers=headers)
     if response.status_code == 404:
