@@ -7,14 +7,17 @@
         "course": {
             "id": "course-v1:edX+DemoX+Demo_Course",
             "mode": "audit"
-        }
+        },
+        "base_url": "http://site1.localhost:18000",
+        "client_id": "apiclient",
+        "client_secret": "apisecret"
     },
     "site2_data": {
         "user_id": "user_site2",
         "user_email": "user_site2@example.com",
-        "host": "site2.localhost"
-    },
-    "base_url": "http://localhost:18000",
-    "client_id": "apiclient",
-    "client_secret": "apisecret"
+        "host": "site2.localhost",
+        "base_url": "http://site2.localhost:18000",
+        "client_id": "apiclient",
+        "client_secret": "apisecret"
+    }
 }
