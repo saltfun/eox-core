@@ -10,7 +10,7 @@ from django.test import TestCase
 
 
 @pytest.mark.skipif(bool(environ.get('CI')), reason='Do not run on CI')
-class TestEnrollmentIntegration(TestCase): # pragma: no cover
+class TestEnrollmentIntegration(TestCase):  # pragma: no cover
     # pylint: disable=too-many-public-methods
     """Test suite"""
     data = {}
